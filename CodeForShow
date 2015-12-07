@@ -1,0 +1,62 @@
+var module = require('express');
+var app = module();
+
+var myRouter = module.Router();
+var devStatus = new Uint8Array(8);
+var message = "Sleeping";
+
+//Khai báo serial port, serialPort là tool để kết nối với processor
+var SerialPort = require("serialport").SerialPort
+var sPort = new SerialPort("/dev/ttyO1", {
+    baudrate: 115200 //Thong so truyen thong, thông số càng cao thì truyền càng nhanh nhưng càng dễ lỗi, thường là 9600
+});
+
+//Kết nối tới processor
+sPort.on("open", function() {
+    console.log("Opened serial port");
+});
+
+var mess = new Uint8Array(4);
+mess[0] = 0x44;
+mess[1] = 0x31;
+mess[2] = 0x32;
+mess[3] = 0x28;
+serialPort.write(mess);
+//Gửi yêu cầu join vào processor với tham số là mess
+
+app.get('/', function(req, res){
+	res.send('Hello every body');
+});
+
+function switchstt(status) {
+    if(status == "off") {
+		devStatus[7] = 0x30;
+		message = "Tắt đèn";
+	}
+	else if(status == "on"){
+		devStatus[7] = 0x31;
+		message = "Bật đèn";	
+	}
+    //Yêu cầu processor thực hiện
+	serialPort.write(devStatus);
+}
+
+myRouter.route("/device/den-ngu/switch/:status").post(function(req, res, next) {
+    devStatus[0]=0x44;
+    devStatus[1]=0x31;
+    devStatus[2]=0x34;
+    devStatus[3]=0x31;
+    devStatus[4]=0xa2;
+    devStatus[5]=0x6a;
+    devStatus[6]=0x10;
+    switchstt(req.params.status)
+    res.send({
+        message: message,
+        status: '200 OK'
+    });
+})
+
+var port = 8888;
+app.listen(port);
+app.use('/', myRouter);
+console.log('Server is running on port %s', port);
